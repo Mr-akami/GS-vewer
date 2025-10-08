@@ -92,7 +92,12 @@ export class SparksViewer implements ISplatViewer {
 
     // Create new SplatMesh
     this.splatMesh = new SplatMesh({ url });
+    // Set quaternion like in Spark examples
+    this.splatMesh.quaternion.set(1, 0, 0, 0);
     this.scene.add(this.splatMesh);
+    
+    console.log('[Sparks] SplatMesh quaternion:', this.splatMesh.quaternion);
+    console.log('[Sparks] SplatMesh rotation:', this.splatMesh.rotation);
 
     // Wait for splat to load and initialize
     if (this.splatMesh.initialized) {
