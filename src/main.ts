@@ -17,6 +17,7 @@ class GaussianSplattingApp {
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     const loadSampleBtn = document.getElementById('load-sample') as HTMLButtonElement;
+    const resetCameraBtn = document.getElementById('reset-camera') as HTMLButtonElement;
     const moveSpeedSlider = document.getElementById('move-speed') as HTMLInputElement;
     const moveSpeedValue = document.getElementById('move-speed-value') as HTMLSpanElement;
 
@@ -43,6 +44,13 @@ class GaussianSplattingApp {
     loadSampleBtn.addEventListener('click', async () => {
       const sampleURL = 'https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/point_cloud/iteration_7000/point_cloud.ply';
       await this.loadURL(sampleURL);
+    });
+
+    // Reset camera button
+    resetCameraBtn.addEventListener('click', () => {
+      if (this.currentViewer && 'resetCamera' in this.currentViewer) {
+        (this.currentViewer as any).resetCamera();
+      }
     });
 
     // Move speed slider

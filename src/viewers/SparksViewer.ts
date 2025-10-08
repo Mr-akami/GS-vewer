@@ -13,6 +13,8 @@ export class SparksViewer implements ISplatViewer {
   private keyState: { [key: string]: boolean } = {};
   public moveSpeed = 1.0; // Make public so it can be accessed from main.ts
   private gamepadIndex: number | null = null;
+  private initialCameraPosition = new THREE.Vector3();
+  private initialCameraTarget = new THREE.Vector3();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -64,8 +66,21 @@ export class SparksViewer implements ISplatViewer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
+  public resetCamera(): void {
+    this.camera.position.copy(this.initialCameraPosition);
+    this.controls.target.copy(this.initialCameraTarget);
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+    console.log('[Sparks] Camera reset to initial position');
+  }
+
   private setupKeyboardControls(): void {
     const onKeyDown = (event: KeyboardEvent) => {
+      // R key to reset camera
+      if (event.key.toLowerCase() === 'r') {
+        this.resetCamera();
+        return;
+      }
       this.keyState[event.key.toLowerCase()] = true;
     };
 
@@ -108,13 +123,20 @@ export class SparksViewer implements ISplatViewer {
     const rightStickX = Math.abs(gamepad.axes[2]) > deadzone ? gamepad.axes[2] : 0;
     const rightStickY = Math.abs(gamepad.axes[3]) > deadzone ? gamepad.axes[3] : 0;
 
-    // Buttons: 0=A, 1=B, 4=LB, 5=RB, 6=LT, 7=RT
+    // Buttons: 0=A, 1=B, 2=X, 4=LB, 5=RB, 6=LT, 7=RT, 9=Left Stick Click
     const buttonA = gamepad.buttons[0]?.pressed;
     const buttonB = gamepad.buttons[1]?.pressed;
+    const buttonX = gamepad.buttons[2]?.pressed;
     const buttonLB = gamepad.buttons[4]?.pressed;
     const buttonRB = gamepad.buttons[5]?.pressed;
     const buttonLT = gamepad.buttons[6]?.pressed;
     const buttonRT = gamepad.buttons[7]?.pressed;
+
+    // X button to reset camera
+    if (buttonX) {
+      this.resetCamera();
+      return;
+    }
 
     const direction = new THREE.Vector3();
     const right = new THREE.Vector3();
@@ -184,7 +206,7 @@ export class SparksViewer implements ISplatViewer {
     // Right stick for camera rotation
     if (rightStickX !== 0 || rightStickY !== 0) {
       // Rotate camera around the target
-      const rotationSpeed = 0.05; // Increased from 0.02
+      const rotationSpeed = 0.05 * (this.moveSpeed / 1.0); // Scale with moveSpeed
       
       // Horizontal rotation (around Y axis)
       const horizontalAngle = -rightStickX * rotationSpeed;
@@ -301,6 +323,10 @@ export class SparksViewer implements ISplatViewer {
         this.camera.lookAt(0, 0, 0);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
+
+        // Save initial camera position
+        this.initialCameraPosition.copy(this.camera.position);
+        this.initialCameraTarget.copy(this.controls.target);
 
         console.log('[Sparks] Camera adjusted to:', this.camera.position);
       }
