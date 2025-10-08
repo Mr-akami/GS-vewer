@@ -17,6 +17,8 @@ class GaussianSplattingApp {
     const loadBtn = document.getElementById('load-btn') as HTMLButtonElement;
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     const loadSampleBtn = document.getElementById('load-sample') as HTMLButtonElement;
+    const moveSpeedSlider = document.getElementById('move-speed') as HTMLInputElement;
+    const moveSpeedValue = document.getElementById('move-speed-value') as HTMLSpanElement;
 
     // Viewer type selector
     viewerSelect.addEventListener('change', async (e) => {
@@ -41,6 +43,15 @@ class GaussianSplattingApp {
     loadSampleBtn.addEventListener('click', async () => {
       const sampleURL = 'https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/point_cloud/iteration_7000/point_cloud.ply';
       await this.loadURL(sampleURL);
+    });
+
+    // Move speed slider
+    moveSpeedSlider.addEventListener('input', (e) => {
+      const value = parseFloat((e.target as HTMLInputElement).value);
+      moveSpeedValue.textContent = value.toFixed(1);
+      if (this.currentViewer && 'moveSpeed' in this.currentViewer) {
+        (this.currentViewer as any).moveSpeed = value;
+      }
     });
   }
 

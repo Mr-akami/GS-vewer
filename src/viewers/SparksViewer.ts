@@ -10,6 +10,8 @@ export class SparksViewer implements ISplatViewer {
   private controls: OrbitControls;
   private container: HTMLElement;
   private splatMesh: SplatMesh | null = null;
+  private keyState: { [key: string]: boolean } = {};
+  public moveSpeed = 1.0; // Make public so it can be accessed from main.ts
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -47,12 +49,69 @@ export class SparksViewer implements ISplatViewer {
 
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
+    
+    // Handle keyboard input
+    this.setupKeyboardControls();
   }
 
   private onWindowResize(): void {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  private setupKeyboardControls(): void {
+    const onKeyDown = (event: KeyboardEvent) => {
+      this.keyState[event.key.toLowerCase()] = true;
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      this.keyState[event.key.toLowerCase()] = false;
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+  }
+
+  private updateCameraMovement(): void {
+    const direction = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    
+    // Get camera forward direction (ignore Y component for horizontal movement)
+    this.camera.getWorldDirection(direction);
+    direction.y = 0;
+    direction.normalize();
+    
+    // Get camera right direction
+    right.crossVectors(this.camera.up, direction).normalize();
+    
+    // WASD movement
+    if (this.keyState['w']) {
+      this.camera.position.addScaledVector(direction, this.moveSpeed);
+      this.controls.target.addScaledVector(direction, this.moveSpeed);
+    }
+    if (this.keyState['s']) {
+      this.camera.position.addScaledVector(direction, -this.moveSpeed);
+      this.controls.target.addScaledVector(direction, -this.moveSpeed);
+    }
+    if (this.keyState['a']) {
+      this.camera.position.addScaledVector(right, this.moveSpeed);
+      this.controls.target.addScaledVector(right, this.moveSpeed);
+    }
+    if (this.keyState['d']) {
+      this.camera.position.addScaledVector(right, -this.moveSpeed);
+      this.controls.target.addScaledVector(right, -this.moveSpeed);
+    }
+    
+    // Space / Shift for up/down movement
+    if (this.keyState[' ']) {
+      this.camera.position.y += this.moveSpeed;
+      this.controls.target.y += this.moveSpeed;
+    }
+    if (this.keyState['shift']) {
+      this.camera.position.y -= this.moveSpeed;
+      this.controls.target.y -= this.moveSpeed;
+    }
   }
 
   async init(): Promise<void> {
@@ -130,6 +189,10 @@ export class SparksViewer implements ISplatViewer {
       console.log('[Sparks] Controls enabled:', this.controls.enabled);
       console.log('[Sparks] Canvas in DOM:', document.body.contains(this.renderer.domElement));
     }
+    
+    // Update camera movement based on keyboard input
+    this.updateCameraMovement();
+    
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
