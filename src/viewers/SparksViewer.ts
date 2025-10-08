@@ -12,6 +12,7 @@ export class SparksViewer implements ISplatViewer {
   private splatMesh: SplatMesh | null = null;
   private keyState: { [key: string]: boolean } = {};
   public moveSpeed = 1.0; // Make public so it can be accessed from main.ts
+  private gamepadIndex: number | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -52,6 +53,9 @@ export class SparksViewer implements ISplatViewer {
     
     // Handle keyboard input
     this.setupKeyboardControls();
+    
+    // Handle gamepad input
+    this.setupGamepadControls();
   }
 
   private onWindowResize(): void {
@@ -71,6 +75,130 @@ export class SparksViewer implements ISplatViewer {
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+  }
+
+  private setupGamepadControls(): void {
+    window.addEventListener('gamepadconnected', (e) => {
+      const gamepad = (e as GamepadEvent).gamepad;
+      this.gamepadIndex = gamepad.index;
+      console.log('[Sparks] Gamepad connected:', gamepad.id);
+    });
+
+    window.addEventListener('gamepaddisconnected', (e) => {
+      const gamepad = (e as GamepadEvent).gamepad;
+      if (this.gamepadIndex === gamepad.index) {
+        this.gamepadIndex = null;
+        console.log('[Sparks] Gamepad disconnected');
+      }
+    });
+  }
+
+  private updateGamepadMovement(): void {
+    if (this.gamepadIndex === null) return;
+
+    const gamepads = navigator.getGamepads();
+    const gamepad = gamepads[this.gamepadIndex];
+    if (!gamepad) return;
+
+    // Xbox controller mapping:
+    // Axes: 0=Left stick X, 1=Left stick Y, 2=Right stick X, 3=Right stick Y
+    const deadzone = 0.15;
+    const leftStickX = Math.abs(gamepad.axes[0]) > deadzone ? gamepad.axes[0] : 0;
+    const leftStickY = Math.abs(gamepad.axes[1]) > deadzone ? gamepad.axes[1] : 0;
+    const rightStickX = Math.abs(gamepad.axes[2]) > deadzone ? gamepad.axes[2] : 0;
+    const rightStickY = Math.abs(gamepad.axes[3]) > deadzone ? gamepad.axes[3] : 0;
+
+    // Buttons: 0=A, 1=B, 4=LB, 5=RB, 6=LT, 7=RT
+    const buttonA = gamepad.buttons[0]?.pressed;
+    const buttonB = gamepad.buttons[1]?.pressed;
+    const buttonLB = gamepad.buttons[4]?.pressed;
+    const buttonRB = gamepad.buttons[5]?.pressed;
+    const buttonLT = gamepad.buttons[6]?.pressed;
+    const buttonRT = gamepad.buttons[7]?.pressed;
+
+    const direction = new THREE.Vector3();
+    const right = new THREE.Vector3();
+
+    // Get camera directions
+    this.camera.getWorldDirection(direction);
+    direction.y = 0;
+    direction.normalize();
+    right.crossVectors(this.camera.up, direction).normalize();
+
+    // Left stick for movement (forward/backward/strafe)
+    if (leftStickY !== 0) {
+      this.camera.position.addScaledVector(direction, -leftStickY * this.moveSpeed);
+      this.controls.target.addScaledVector(direction, -leftStickY * this.moveSpeed);
+    }
+    if (leftStickX !== 0) {
+      this.camera.position.addScaledVector(right, -leftStickX * this.moveSpeed);
+      this.controls.target.addScaledVector(right, -leftStickX * this.moveSpeed);
+    }
+
+    // A/B buttons for up/down
+    if (buttonA) {
+      this.camera.position.y += this.moveSpeed;
+      this.controls.target.y += this.moveSpeed;
+    }
+    if (buttonB) {
+      this.camera.position.y -= this.moveSpeed;
+      this.controls.target.y -= this.moveSpeed;
+    }
+
+    // RT/LT for zoom in (move camera closer to target)
+    if (buttonRT || buttonLT) {
+      const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+      const distance = offset.length();
+      const zoomSpeed = this.moveSpeed * 0.5;
+      
+      if (buttonRT && distance > 0.5) {
+        // Zoom in
+        offset.multiplyScalar((distance - zoomSpeed) / distance);
+        this.camera.position.copy(this.controls.target).add(offset);
+      }
+      if (buttonLT) {
+        // Zoom out
+        offset.multiplyScalar((distance + zoomSpeed) / distance);
+        this.camera.position.copy(this.controls.target).add(offset);
+      }
+    }
+
+    // RB/LB for camera pull (move camera away from target)
+    if (buttonRB || buttonLB) {
+      const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+      const distance = offset.length();
+      const pullSpeed = this.moveSpeed * 0.5;
+      
+      if (buttonRB && distance > 0.5) {
+        // Pull camera closer
+        offset.multiplyScalar((distance - pullSpeed) / distance);
+        this.camera.position.copy(this.controls.target).add(offset);
+      }
+      if (buttonLB) {
+        // Push camera further
+        offset.multiplyScalar((distance + pullSpeed) / distance);
+        this.camera.position.copy(this.controls.target).add(offset);
+      }
+    }
+
+    // Right stick for camera rotation
+    if (rightStickX !== 0 || rightStickY !== 0) {
+      // Rotate camera around the target
+      const rotationSpeed = 0.05; // Increased from 0.02
+      
+      // Horizontal rotation (around Y axis)
+      const horizontalAngle = -rightStickX * rotationSpeed;
+      const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), horizontalAngle);
+      this.camera.position.copy(this.controls.target).add(offset);
+      
+      // Vertical rotation (around right axis)
+      const verticalAngle = -rightStickY * rotationSpeed;
+      offset.applyAxisAngle(right, verticalAngle);
+      this.camera.position.copy(this.controls.target).add(offset);
+      
+      this.camera.lookAt(this.controls.target);
+    }
   }
 
   private updateCameraMovement(): void {
@@ -192,6 +320,9 @@ export class SparksViewer implements ISplatViewer {
     
     // Update camera movement based on keyboard input
     this.updateCameraMovement();
+    
+    // Update camera movement based on gamepad input
+    this.updateGamepadMovement();
     
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
