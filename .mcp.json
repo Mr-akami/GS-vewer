@@ -1,0 +1,22 @@
+{
+	"mcpServers": {
+		"playwright": {
+			"command": "npx",
+			"args": ["@playwright/mcp@latest"]
+		},
+		"context7": {
+			"command": "npx",
+			"args": ["-y", "@upstash/context7-mcp@latest"]
+		},
+		"serena": {
+			"command": "uv",
+			"args": [
+				"run",
+				"--directory",
+				"${HOME}/.local/serena",
+				"serena-mcp-server"
+			],
+			"env": {}
+		}
+	}
+}
